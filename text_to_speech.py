@@ -3,6 +3,7 @@ import time
 import threading
 import numpy as np
 import sounddevice as sd
+import random
 
 # Language detection
 try:
@@ -70,7 +71,7 @@ def speak_local_tts(text: str, speaker: str = SPEAKER):
         print("Local TTS not available.")
         return
     try:
-        print(f"🗣️ Speaking with speaker '{speaker}'")
+        # print(f"🗣️ Speaking with speaker '{speaker}'")
         wav = tts.tts(text=text, speaker=speaker)
         sr = tts.synthesizer.output_sample_rate
         t = threading.Thread(target=sd.play, args=(wav, sr))
@@ -81,18 +82,20 @@ def speak_local_tts(text: str, speaker: str = SPEAKER):
 
 def speak(text: str):
     lang = detect_language(text)
-    print(f"🔊 Detected language: {lang.upper()} | Text: {text[:50]}...")
+    # print(f"\U0001F50A Detected language: {lang.upper()} | Text: {text[:50]}...")
     if lang.startswith("th"):
         speak_google_tts(text, lang="th")
+        time.sleep(0.2 + random.uniform(0, 0.3))  # Add a slight random pause
     elif lang.startswith("en"):
         speak_local_tts(text, speaker=SPEAKER)
+        time.sleep(0.2 + random.uniform(0, 0.3))  # Add a slight random pause
     else:
-        print(f"⚠️ Language '{lang}' unsupported. No TTS available for this language.")
+        print(f"\u26a0\ufe0f Language '{lang}' unsupported. No TTS available for this language.")
         # Do not fallback to English TTS
 
 def list_speakers():
     if LOCAL_TTS_AVAILABLE:
-        print("🗣️ Available speakers:")
+        # print("🗣️ Available speakers:")
         for s in tts.speakers:
             print(" -", s)
 

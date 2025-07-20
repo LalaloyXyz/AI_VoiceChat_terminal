@@ -6,6 +6,9 @@ from datetime import datetime
 from chat_bot import ask_chat
 from text_to_speech import speak
 import re
+from mic_volume_meter import show_volume_meter
+import threading
+import pyfiglet
 
 @contextlib.contextmanager
 def suppress_alsa_errors():
@@ -31,7 +34,6 @@ class AutoSpeechRecognizer:
         self.language_success = {}
         self.last_successful_language = None
         self.conversation_history = []  # Add this line
-        print("Calibrating microphone...")
         with suppress_alsa_errors():
             with self.microphone as source:
                 self.r.adjust_for_ambient_noise(source, duration=1)
@@ -51,23 +53,23 @@ class AutoSpeechRecognizer:
         return languages
 
     def recognize_speech(self, audio):
-        """Recognize speech in multiple languages, prioritizing recent successes."""
+        """Recognize speech in multiple languages, prioritizing recent successes. Returns (text, lang_code) or (None, None)."""
         for (lang_code,) in self.get_optimized_language_order():
             try:
                 text = self.r.recognize_google(audio, language=lang_code)
                 self.language_success[lang_code] = self.language_success.get(lang_code, 0) + 1
                 self.last_successful_language = (lang_code,)
-                return text
+                return text, lang_code
             except sr.UnknownValueError:
                 continue
-        return None
+        return None, None
 
     def background_callback(self, recognizer, audio):
         timestamp = datetime.now().strftime("%H:%M:%S")
-        print(f"[{timestamp}]")
-        text = self.recognize_speech(audio)
+        text, lang_code = self.recognize_speech(audio)
         if text:
-            print("User: ", end="", flush=True)
+            print(f"[{timestamp}]")
+            print(f"User: ", end="", flush=True)
             for word in text.split():
                 print(word + " ", end="", flush=True)
                 time.sleep(0.2)
@@ -93,14 +95,20 @@ class AutoSpeechRecognizer:
                 for sentence in sentences:
                     if sentence.strip():
                         speak(sentence.strip())
+                        time.sleep(0.3 + 0.2 * (len(sentence.split()) // 7))  # Add a natural pause
             # Speak any remaining buffer (in case last chunk doesn't end with punctuation)
             if sentence_buffer.strip():
                 speak(sentence_buffer.strip())
             print()
             self.conversation_history.append(("AI", ai_response))
-        else:
-            print(f"[{timestamp}] Could not recognize speech in any language")
-        print("-" * 40)
+            print("-" * 60)
+            # Save conversation to file
+            try:
+                with open("conversation_log.txt", "a", encoding="utf-8") as f:
+                    for role, msg in self.conversation_history[-2:]:
+                        f.write(f"{role}: {msg}\n")
+            except Exception as e:
+                print(f"[Log error: {e}]")
 
     def start_listening(self):
         """Start background listening using listen_in_background."""
@@ -108,11 +116,9 @@ class AutoSpeechRecognizer:
             self.is_listening = True
             with suppress_alsa_errors():
                 self.stopper = self.r.listen_in_background(
-                    self.microphone, self.background_callback,
-                    phrase_time_limit=3
+                    self.microphone, self.background_callback
                 )
-            print("Auto-listening started! Speak anytime...")
-            print("=" * 60)
+            print("-" * 60)
             return True
         return False
 
@@ -136,8 +142,19 @@ class AutoSpeechRecognizer:
             self.stop_listening()
 
 def main():
+    os.system("clear")
+    #threading.Thread(target=show_volume_meter, daemon=True).start()
     recognizer = AutoSpeechRecognizer()
-    print("Fully Automatic Multi-Language Speech Recognition")
+    ascii_art = pyfiglet.figlet_format("lookchill !", font="standard")
+    lines = ascii_art.splitlines()
+
+    # A list of blue-ish colors in ANSI 256 color codes
+    colors = [21, 27, 33, 39, 45, 51]  
+
+    for i, line in enumerate(lines):
+        color_code = colors[i % len(colors)]
+        print(f"\033[38;5;{color_code}m{line}\033[0m")
+
     try:
         recognizer.run()
     except Exception as e:

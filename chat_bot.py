@@ -2,12 +2,9 @@ import requests
 import time
 import json
 
-AI_MODEL = "llama3"
+AI_MODEL = "llama3.1"
 
 def ask_chat(history):
-    """
-    history: list of (role, message) tuples, e.g. [("User", "Hi"), ("AI", "Hello!"), ...]
-    """
     # Style the system prompt
     system_prompt = ""
 
@@ -38,17 +35,3 @@ def ask_chat(history):
                 except Exception as e:
                     yield f"[Parse error: {e}]"
                     break
-
-def main():
-    print("Type your message (type 'exit' to quit):")
-    while True:
-        user_input = input("> ")
-        if user_input.strip().lower() == "exit":
-            print("👋 Bye-bye! Talk soon!")
-            break
-        for chunk in ask_chat(user_input):
-            print(chunk, end="", flush=True)
-    print("\n")
-
-if __name__ == "__main__":
-    main()
